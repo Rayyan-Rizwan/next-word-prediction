@@ -3,8 +3,9 @@ import numpy as np
 import pickle
 import json
 import time
-import keras
-from tensorflow.keras.models import load_model
+import tensorflow as tf
+from tensorflow.keras.models import load_model, Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 # -------------------------------------------------------------
@@ -17,17 +18,14 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------------
-# 2. Custom CSS (Styling, Animations, Colors)
+# 2. Custom CSS
 # -------------------------------------------------------------
 custom_css = """
 <style>
-/* Gradient Background */
 .stApp {
     background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
     color: #f8fafc;
 }
-
-/* Glassmorphism Title Box */
 .main-title {
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(10px);
@@ -37,9 +35,7 @@ custom_css = """
     text-align: center;
     margin-bottom: 30px;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    animation: fadeIn 1.2s ease-in-out;
 }
-
 .main-title h1 {
     background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
     -webkit-background-clip: text;
@@ -48,8 +44,6 @@ custom_css = """
     font-weight: 800;
     margin: 0;
 }
-
-/* Styled Option Cards with Animations */
 .option-card {
     background: rgba(30, 41, 59, 0.7);
     border-left: 5px solid #818cf8;
@@ -60,37 +54,21 @@ custom_css = """
     font-size: 1.1rem;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease-in-out;
-    animation: slideUp 0.5s ease-out forwards;
 }
-
 .option-card:hover {
-    transform: translateY(-4px) scale(1.01);
+    transform: translateY(-4px);
     border-left-color: #38bdf8;
-    box-shadow: 0 8px 25px rgba(56, 189, 248, 0.25);
     background: rgba(30, 41, 59, 0.9);
 }
-
 .option-number {
     color: #38bdf8;
     font-weight: 700;
     margin-right: 8px;
 }
-
-/* Animations Keyframes */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
 
-# Header Section
 st.markdown("""
 <div class="main-title">
     <h1>⚡ AI Sentence Completer</h1>
@@ -106,9 +84,6 @@ st.markdown("""
 # -------------------------------------------------------------
 @st.cache_resource
 def load_artifacts():
-    # Load model directly using tf.keras loader
-    model = load_model('quote_prediction_model.h5', compile=False)
-    
     with open('tokenizer.pickle', 'rb') as f:
         tokenizer = pickle.load(f)
         
@@ -116,6 +91,15 @@ def load_artifacts():
         config = json.load(f)
         
     max_len = config.get('max_sequence_len') or config.get('max_len')
+    
+    # Try loading model via tf_keras to bypass Keras 3 deserialization incompatibility
+    try:
+        import tf_keras
+        model = tf_keras.models.load_model('quote_prediction_model.h5', compile=False)
+    except Exception:
+        # Fallback to standard TensorFlow Keras loader
+        model = load_model('quote_prediction_model.h5', compile=False)
+
     return model, tokenizer, max_len
 
 try:
@@ -161,7 +145,7 @@ def generate_multiple_options(seed_text, next_words, model, tokenizer, max_len, 
     return generated_options
 
 # -------------------------------------------------------------
-# 5. UI Controls
+# 5. UI Controls & Generation
 # -------------------------------------------------------------
 input_prompt = st.text_input("✨ Enter Starting Words:", value="success comes to")
 
@@ -174,14 +158,9 @@ with col2:
 with st.expander("⚙️ Advanced Settings"):
     temp = st.slider("Creativity (Temperature):", min_value=0.2, max_value=1.5, value=0.7, step=0.1)
 
-# -------------------------------------------------------------
-# 6. Output Display with Animation Effects
-# -------------------------------------------------------------
 if st.button("🚀 Generate Predictions", type="primary", use_container_width=True):
     if not input_prompt.strip():
         st.warning("Please enter a prompt first.")
-    elif model is None or tokenizer is None:
-        st.error("Model or Tokenizer is not loaded properly.")
     else:
         with st.spinner("AI is thinking..."):
             time.sleep(0.3)
