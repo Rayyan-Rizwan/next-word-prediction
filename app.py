@@ -101,14 +101,13 @@ st.markdown("""
 # -------------------------------------------------------------
 # 3. Load Model Artifacts
 # -------------------------------------------------------------
+# -------------------------------------------------------------
+# 3. Load Model Artifacts
+# -------------------------------------------------------------
 @st.cache_resource
 def load_artifacts():
-    try:
-        # Direct Keras 3 loading
-        model = load_model('quote_prediction_model.h5', compile=False)
-    except Exception:
-        import tf_keras
-        model = tf_keras.models.load_model('quote_prediction_model.h5', compile=False)
+    # Load model directly using tf.keras loader
+    model = load_model('quote_prediction_model.h5', compile=False)
     
     with open('tokenizer.pickle', 'rb') as f:
         tokenizer = pickle.load(f)
@@ -119,17 +118,11 @@ def load_artifacts():
     max_len = config.get('max_sequence_len') or config.get('max_len')
     return model, tokenizer, max_len
 
-# Global scope assignment (Must run before button trigger)
-model = None
-tokenizer = None
-max_len = None
-
 try:
     model, tokenizer, max_len = load_artifacts()
 except Exception as e:
     st.error(f"Error loading model files: {e}")
-    st.stop()  # Stops execution here if artifacts fail to load
-
+    st.stop()
 # -------------------------------------------------------------
 # 4. Prediction Logic
 # -------------------------------------------------------------
