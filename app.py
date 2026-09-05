@@ -104,18 +104,11 @@ st.markdown("""
 @st.cache_resource
 def load_artifacts():
     try:
-        # Standard Keras 3 loading
+        # Direct Keras 3 loading
         model = load_model('quote_prediction_model.h5', compile=False)
     except Exception:
-        try:
-            # Tf-keras compatibility fallback
-            import tf_keras
-            model = tf_keras.models.load_model('quote_prediction_model.h5', compile=False)
-        except Exception:
-            # Custom scope fallback for InputLayer deserialization
-            from keras.layers import InputLayer
-            with keras.utils.custom_object_scope({'InputLayer': InputLayer}):
-                model = load_model('quote_prediction_model.h5', compile=False)
+        import tf_keras
+        model = tf_keras.models.load_model('quote_prediction_model.h5', compile=False)
     
     with open('tokenizer.pickle', 'rb') as f:
         tokenizer = pickle.load(f)
@@ -125,6 +118,17 @@ def load_artifacts():
         
     max_len = config.get('max_sequence_len') or config.get('max_len')
     return model, tokenizer, max_len
+
+# Global scope assignment (Must run before button trigger)
+model = None
+tokenizer = None
+max_len = None
+
+try:
+    model, tokenizer, max_len = load_artifacts()
+except Exception as e:
+    st.error(f"Error loading model files: {e}")
+    st.stop()  # Stops execution here if artifacts fail to load
 
 # -------------------------------------------------------------
 # 4. Prediction Logic
@@ -183,6 +187,8 @@ with st.expander("⚙️ Advanced Settings"):
 if st.button("🚀 Generate Predictions", type="primary", use_container_width=True):
     if not input_prompt.strip():
         st.warning("Please enter a prompt first.")
+    elif model is None or tokenizer is None:
+        st.error("Model or Tokenizer is not loaded properly.")
     else:
         with st.spinner("AI is thinking..."):
             time.sleep(0.3)
@@ -197,7 +203,6 @@ if st.button("🚀 Generate Predictions", type="primary", use_container_width=Tr
             )
             
             st.markdown("### 🎯 Output Options:")
-            
             for idx, opt in enumerate(options, 1):
                 card_html = f"""
                 <div class="option-card">
