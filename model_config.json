@@ -1,0 +1,5 @@
+{
+    "vocab_size": 8979,
+    "max_sequence_length": 745,
+    "input_shape": 745
+}
