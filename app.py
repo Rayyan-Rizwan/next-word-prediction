@@ -100,23 +100,26 @@ st.markdown("""
 # -------------------------------------------------------------
 # 3. Load Model Artifacts
 # -------------------------------------------------------------
+import keras
+
 @st.cache_resource
 def load_artifacts():
-    model = load_model('quote_prediction_model.h5')
+    # Fix Keras 3 deserialization incompatibility with quantization_config
+    try:
+        model = load_model('quote_prediction_model.h5', compile=False)
+    except Exception:
+        # Fallback for Keras deserialization compatibility
+        with keras.utils.custom_object_scope({}):
+            model = load_model('quote_prediction_model.h5', compile=False)
+    
     with open('tokenizer.pickle', 'rb') as f:
         tokenizer = pickle.load(f)
+        
     with open('model_config.json', 'r') as f:
         config = json.load(f)
         
     max_len = config.get('max_sequence_len') or config.get('max_len')
     return model, tokenizer, max_len
-
-try:
-    model, tokenizer, max_len = load_artifacts()
-except Exception as e:
-    st.error(f"Error loading model files: {e}")
-    st.stop()
-
 # -------------------------------------------------------------
 # 4. Prediction Logic
 # -------------------------------------------------------------
