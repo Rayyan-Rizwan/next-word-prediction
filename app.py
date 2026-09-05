@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import json
 import time
+import keras
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
@@ -100,15 +101,11 @@ st.markdown("""
 # -------------------------------------------------------------
 # 3. Load Model Artifacts
 # -------------------------------------------------------------
-import keras
-
 @st.cache_resource
 def load_artifacts():
-    # Fix Keras 3 deserialization incompatibility with quantization_config
     try:
         model = load_model('quote_prediction_model.h5', compile=False)
     except Exception:
-        # Fallback for Keras deserialization compatibility
         with keras.utils.custom_object_scope({}):
             model = load_model('quote_prediction_model.h5', compile=False)
     
@@ -120,6 +117,13 @@ def load_artifacts():
         
     max_len = config.get('max_sequence_len') or config.get('max_len')
     return model, tokenizer, max_len
+
+try:
+    model, tokenizer, max_len = load_artifacts()
+except Exception as e:
+    st.error(f"Error loading model files: {e}")
+    st.stop()
+
 # -------------------------------------------------------------
 # 4. Prediction Logic
 # -------------------------------------------------------------
@@ -130,7 +134,7 @@ def sample_with_temperature(preds, temperature=0.7):
     preds = exp_preds / np.sum(exp_preds)
     return np.random.choice(len(preds), p=preds)
 
-def generate_multiple_options(seed_text, next_words, num_options=3, temperature=0.7):
+def generate_multiple_options(seed_text, next_words, model, tokenizer, max_len, num_options=3, temperature=0.7):
     generated_options = []
     
     for _ in range(num_options):
@@ -179,17 +183,19 @@ if st.button("🚀 Generate Predictions", type="primary", use_container_width=Tr
         st.warning("Please enter a prompt first.")
     else:
         with st.spinner("AI is thinking..."):
-            time.sleep(0.3) # Subtle UI feel
+            time.sleep(0.3)
             options = generate_multiple_options(
                 seed_text=input_prompt, 
                 next_words=num_words, 
+                model=model,
+                tokenizer=tokenizer,
+                max_len=max_len,
                 num_options=num_options, 
                 temperature=temp
             )
             
             st.markdown("### 🎯 Output Options:")
             
-            # Displaying each option with stylish cards
             for idx, opt in enumerate(options, 1):
                 card_html = f"""
                 <div class="option-card">
