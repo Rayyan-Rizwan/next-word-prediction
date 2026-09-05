@@ -79,9 +79,8 @@ st.markdown("""
 # -------------------------------------------------------------
 # 3. Load Model Artifacts
 # -------------------------------------------------------------
-# -------------------------------------------------------------
-# 3. Load Model Artifacts
-# -------------------------------------------------------------
+from tensorflow.keras.layers import InputLayer
+
 @st.cache_resource
 def load_artifacts():
     with open('tokenizer.pickle', 'rb') as f:
@@ -92,13 +91,17 @@ def load_artifacts():
         
     max_len = config.get('max_sequence_len') or config.get('max_len')
     
-    # Try loading model via tf_keras to bypass Keras 3 deserialization incompatibility
+    # Bypass Keras 3 legacy deserialization error using custom_objects mapping
     try:
-        import tf_keras
-        model = tf_keras.models.load_model('quote_prediction_model.h5', compile=False)
+        model = load_model(
+            'quote_prediction_model.h5', 
+            compile=False, 
+            custom_objects={'InputLayer': InputLayer}
+        )
     except Exception:
-        # Fallback to standard TensorFlow Keras loader
-        model = load_model('quote_prediction_model.h5', compile=False)
+        # Fallback if custom object mapping needs direct tf.keras load
+        import tensorflow as tf
+        model = tf.keras.models.load_model('quote_prediction_model.h5', compile=False)
 
     return model, tokenizer, max_len
 
