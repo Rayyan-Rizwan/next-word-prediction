@@ -104,10 +104,18 @@ st.markdown("""
 @st.cache_resource
 def load_artifacts():
     try:
+        # Standard Keras 3 loading
         model = load_model('quote_prediction_model.h5', compile=False)
     except Exception:
-        with keras.utils.custom_object_scope({}):
-            model = load_model('quote_prediction_model.h5', compile=False)
+        try:
+            # Tf-keras compatibility fallback
+            import tf_keras
+            model = tf_keras.models.load_model('quote_prediction_model.h5', compile=False)
+        except Exception:
+            # Custom scope fallback for InputLayer deserialization
+            from keras.layers import InputLayer
+            with keras.utils.custom_object_scope({'InputLayer': InputLayer}):
+                model = load_model('quote_prediction_model.h5', compile=False)
     
     with open('tokenizer.pickle', 'rb') as f:
         tokenizer = pickle.load(f)
@@ -117,12 +125,6 @@ def load_artifacts():
         
     max_len = config.get('max_sequence_len') or config.get('max_len')
     return model, tokenizer, max_len
-
-try:
-    model, tokenizer, max_len = load_artifacts()
-except Exception as e:
-    st.error(f"Error loading model files: {e}")
-    st.stop()
 
 # -------------------------------------------------------------
 # 4. Prediction Logic
